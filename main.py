@@ -24,11 +24,14 @@ s.enter(0, 1, scheduler, (s, ))
 
 #Scraping
 def scrape4chan(thisTime):
-  global ratios, boards, extens, scrapes
+  global ratios, boards, extens
+
+  ##For each specified board
   for board in boards:
     print "/" + board + "/"
     os.makedirs(thisTime + "/" + board)
 
+    ##Load the thread number on the board
     threadsson = "https://a.4cdn.org/" + board + "/threads.json"
     req = urllib2.Request(
       threadsson,
@@ -40,6 +43,7 @@ def scrape4chan(thisTime):
       json = opener.open(req)
       data = simplejson.load(json)
 
+      ##For each thread on the front page of the board
       for thread in data[0]["threads"]:
         print "     " + str(thread["no"])
 
@@ -54,8 +58,9 @@ def scrape4chan(thisTime):
           json = opener.open(req)
           data = simplejson.load(json)
 
+          ##For each reply in the thread from the front page of the board
           for reply in data["posts"]:
-            if "tim" in reply and reply["w"]/reply["h"] in ratios and reply["ext"] in extens:
+            if "tim" in reply and reply["w"]/reply["h"] in ratios and reply["ext"] in extens and reply["w"]>800 and reply["h"]>600:
               img = str(reply["tim"]) + reply["ext"]
               url = "http://i.4cdn.org/" + board + "/" + img
               urllib.urlretrieve(url, thisTime + "/"  + board + "/" + img)
@@ -68,10 +73,10 @@ def scrape4chan(thisTime):
                 for r in rgbb:
                   rgb.append(int(round((float(r)/255)*5)*51))
 
-                actual_name, closest_name = ice.get_colour_name(tuple(rgb))
-                colorname = actual_name if actual_name != None else closest_name
+                actualName, closestName = ice.get_colour_name(tuple(rgb))
+                colorName = actualName if actualName != None else closestName
 
-                colors.append({color: colorname})
+                colors.append({color: colorName})
 
               response = unirest.get(
                 "https://faceplusplus-faceplusplus.p.mashape.com/detection/detect?attribute=glass%2Cpose%2Cgender%2Cage%2Crace%2Csmiling&url=" + urllib.quote(img),
@@ -80,11 +85,17 @@ def scrape4chan(thisTime):
                   "Accept": "application/json"
                 }
               )
+                
+              if "face" in response.body and len(response.body["face"]) > 0:
+                person = response.body["face"]
+              else:
+                person = False
+
               tags = {
                 "colors": colors,
-                "person": (True if "face" in response.body and len(response.body["face"])>1 else False),
+                "person": person
               }
-              #print "                 " + str(tags)
+
               with open("log.txt", "a") as myfile:
                 myfile.write(str(tags) + "\n")
 
