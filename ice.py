@@ -1,7 +1,7 @@
 #https://charlesleifer.com/blog/using-python-and-k-means-to-find-the-dominant-colors-in-images/
 from collections import namedtuple
 from math import sqrt
-import random, webcolors
+import random, webcolors, os.path
 try:
     import Image
 except ImportError:
@@ -20,14 +20,17 @@ def get_points(img):
 rtoh = lambda rgb: '#%s' % ''.join(('%02x' % p for p in rgb))
 
 def colorz(filename, n=3):
-    img = Image.open(filename)
-    img.thumbnail((200, 200))
-    w, h = img.size
+    if os.path.isfile(filename):
+        img = Image.open(filename)
+        img.thumbnail((200, 200))
+        w, h = img.size
 
-    points = get_points(img)
-    clusters = kmeans(points, n, 1)
-    rgbs = [map(int, c.center.coords) for c in clusters]
-    return map(rtoh, rgbs)
+        points = get_points(img)
+        clusters = kmeans(points, n, 1)
+        rgbs = [map(int, c.center.coords) for c in clusters]
+        return map(rtoh, rgbs)
+    else:
+        print "not a file, fgt"
 
 def euclidean(p1, p2):
     return sqrt(sum([

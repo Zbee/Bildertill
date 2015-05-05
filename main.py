@@ -65,6 +65,8 @@ def scrape4chan(thisTime):
               url = "http://i.4cdn.org/" + board + "/" + img
               urllib.urlretrieve(url, thisTime + "/"  + board + "/" + img)
 
+              print "             " + str(reply["no"]) + ": " + str(url)
+
               colors = []
               domColors = ice.colorz(thisTime + "/"  + board + "/" + img)
               for color in domColors:
@@ -79,8 +81,10 @@ def scrape4chan(thisTime):
                 colors.append({color: colorName})
 
               response = unirest.get(
-                "https://faceplusplus-faceplusplus.p.mashape.com/detection/detect?attribute=glass%2Cpose%2Cgender%2Cage%2Crace%2Csmiling&url=" + urllib.quote(img),
-                headers={
+                "https://faceplusplus-faceplusplus.p.mashape.com/detection/detect?"
+                + "attribute=glass%2Cpose%2Cgender%2Cage%2Crace%2Csmiling&url="
+                + urllib.quote(img),
+                headers = {
                   "X-Mashape-Key": "",
                   "Accept": "application/json"
                 }
