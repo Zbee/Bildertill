@@ -2,19 +2,23 @@
 
 # Dependencies (Pillow, Unirest, Webcolors)
 # pip install pillow unirest webcolors
-import ice
 import os
-import simplejson
+import ssl
 import time
-import unirest
 import urllib
 import urllib2
+
+import simplejson
+import unirest
 import webcolors
+
+import ice
 
 # Configuration
 boards = ["wg", "w"]
 ratios = [16 / 9, 4 / 3, 16 / 10, 21 / 9, 21 / 10, 5 / 6]
 extens = [".png", ".jpg"]
+mashape = ""
 
 # Touch directory for this tagging
 thisTime = time.strftime("%Y-%m-%dT%H%M%S")
@@ -28,6 +32,7 @@ print "Commencing tagging at " + thisTime
 
 # Processing a single image
 def process_reply(reply, board):
+    global mashape
     global x
     # If it's an image and meets the ratio requirements
     if "tim" in reply and reply["w"] / reply["h"] in ratios and \
@@ -50,12 +55,31 @@ def process_reply(reply, board):
         x += 1
 
         try:
-            # Determine dominant colors, in hexadecimal
+            # Determine dominant colors, in hexadecimal using ice.py
             colors = []
             try:
                 dominant_colors = ice.colorz(dl_img)
             except ZeroDivisionError:
-                dominant_colors = []
+                # Fallback to API
+                try:
+                    color_response = unirest.get(
+                        "GEThttps://colorengine.p.mashape.com/palette/"
+                        + urllib.quote(url),
+                        headers={
+                            "X-Mashape-Key": mashape,
+                            "Accept": "application/json"
+                        }
+                    )
+
+                    # Determine API finding's
+                    dominant_colors = [
+                        color_response.body[0]["hex"],
+                        color_response.body[1]["hex"],
+                        color_response.body[2]["hex"]
+                    ]
+                except ssl.SSLError:
+                    dominant_colors = []
+
             # For each dominant color, find closest web-safe color
             for color in dominant_colors:
                 rgbb = str(webcolors.hex_to_rgb(color))[1:-1].split(
@@ -79,28 +103,53 @@ def process_reply(reply, board):
             colors = []
 
         # Check if there is a face present
-        response = unirest.get(
-            "https://faceplusplus-faceplusplus.p.mashape.com/detection/detect?"
-            + "attribute=glass%2Cpose%2Cgender%2Cage%2Crace%2Csmiling&url="
-            + urllib.quote(img),
-            headers={
-                "X-Mashape-Key": "",
-                "Accept": "application/json"
-            }
-        )
+        try:
+            face_response = unirest.get(
+                "https://faceplusplus-faceplusplus.p.mashape.com/detection/detect?"
+                + "attribute=glass%2Cpose%2Cgender%2Cage%2Crace%2Csmiling&url="
+                + urllib.quote(url),
+                headers={
+                    "X-Mashape-Key": mashape,
+                    "Accept": "application/json"
+                }
+            )
 
-        # If a person was found
-        if "face" in response.body and len(
-            response.body["face"]) > 0:
-            person = response.body["face"]
-        else:
+            # If a person was found
+            if "face" in face_response.body and len(
+                face_response.body["face"]) > 0:
+                person = face_response.body["face"]
+            else:
+                person = False
+        except ssl.SSLError:
             person = False
+
+        # Check if the content is pornographic
+        try:
+            nudity_response = unirest.get(
+                "https://sphirelabs-advanced-porn-nudity-and-adult-content-"
+                + "detection.p.mashape.com/v1/get/index.php?url="
+                + urllib.quote(url),
+                headers={
+                    "X-Mashape-Key": mashape,
+                    "Accept": "application/json"
+                }
+            )
+
+            # Determine if API found nudity
+            if "is porn" in nudity_response.body and \
+                    nudity_response.body["is porn"] == True:
+                porn = True
+            else:
+                porn = False
+        except ssl.SSLError:
+            porn = False
 
         # Form all collected tags
         tags = {
             "url": url,
             "colors": colors,
-            "person": person
+            "person": True if type(person) == "list" else False,
+            "porn": porn
         }
 
         # Log tags
